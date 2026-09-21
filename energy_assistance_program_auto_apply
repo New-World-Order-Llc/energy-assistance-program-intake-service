@@ -1,0 +1,43 @@
+import json
+from dataclasses import dataclass
+
+CONTACT = {
+    "agency": "Energy Assistance Program - Western Indiana Community Action Agency",
+    "address": "705 S 5th St, Terre Haute, IN 47807",
+    "phone": "812-234-3517",
+    "portal": "https://www.in.gov/ihcda/homeowners-and-renters/low-income-home-energy-assistance-program-liheap/"
+}
+
+@dataclass
+class Member:
+    name: str
+    county: str
+    income: float
+    household_size: int
+    disconnect_notice: bool
+
+def build_payload(member: Member):
+    return {
+        "name": member.name,
+        "county": member.county,
+        "income": member.income,
+        "household_size": member.household_size,
+        "disconnect_notice": member.disconnect_notice,
+        "agency": CONTACT["agency"],
+        "portal": CONTACT["portal"]
+    }
+
+def demo():
+    member = Member(
+        name="Sample User",
+        county="Vigo",
+        income=1500,
+        household_size=2,
+        disconnect_notice=True
+    )
+
+    payload = build_payload(member)
+    print(json.dumps(payload, indent=4))
+
+if __name__ == "__main__":
+    demo()
