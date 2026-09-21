@@ -1,0 +1,70 @@
+from dataclasses import dataclass
+
+SYSTEM_CAPACITY = {
+    "SNAP": {"max_load": 100, "current": 45},
+    "Medicaid": {"max_load": 120, "current": 80},
+    "Housing": {"max_load": 90, "current": 60},
+    "TANF": {"max_load": 70, "current": 50},
+    "LIHEAP": {"max_load": 110, "current": 95}
+}
+
+@dataclass
+class BenefitRequest:
+    member_id: str
+    name: str
+    priority: str  # low, medium, high
+    required_system: str  # SNAP, Medicaid, Housing, TANF, LIHEAP
+
+def calculate_load_score(system: str, priority: str):
+    config = SYSTEM_CAPACITY[system]
+    load_ratio = config["current"] / config["max_load"]
+
+    # Priority weighting
+    weight = {
+        "low": 1.0,
+        "medium": 0.8,
+        "high": 0.5
+    }.get(priority, 1.0)
+
+    return load_ratio * weight
+
+def select_best_system(priority: str):
+    scores = {
+        system: calculate_load_score(system, priority)
+        for system in SYSTEM_CAPACITY
+    }
+    return min(scores, key=scores.get)
+
+def balance(request: BenefitRequest):
+    required = request.required_system
+
+    # If required system is overloaded, reroute deterministically
+    score_required = calculate_load_score(required, request.priority)
+    if score_required > 0.85:
+        rerouted = select_best_system(request.priority)
+        return {
+            "member_id": request.member_id,
+            "name": request.name,
+            "original_system": required,
+            "rerouted_system": rerouted,
+            "reason": "Load exceeded deterministic threshold"
+        }
+
+    return {
+        "member_id": request.member_id,
+        "name": request.name,
+        "assigned_system": required,
+        "reason": "System within deterministic load limits"
+    }
+
+def demo():
+    req = BenefitRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        priority="high",
+        required_system="LIHEAP"
+    )
+    print(balance(req))
+
+if __name__ == "__main__":
+    demo()
