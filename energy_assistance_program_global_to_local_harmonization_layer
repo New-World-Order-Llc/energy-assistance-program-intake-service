@@ -1,0 +1,75 @@
+from dataclasses import dataclass
+
+GLOBAL_RULES = {
+    "SDG1": {"local_factor": 0.9, "field": "income_monthly"},
+    "SDG7": {"local_factor": 1.0, "field": "energy_need"},
+    "SDG10": {"local_factor": 1.2, "field": "income_monthly"}
+}
+
+LOCAL_CONFIG = {
+    "IN-Vigo": {"income_limit": 900, "requires_disconnect": True},
+    "IN-Clay": {"income_limit": 850, "requires_disconnect": False},
+    "KY-Fayette": {"income_limit": 800, "requires_disconnect": True},
+    "IL-Cook": {"income_limit": 1100, "requires_disconnect": False}
+}
+
+@dataclass
+class HarmonizationRequest:
+    member_id: str
+    name: str
+    country: str
+    sdg_compliance: dict
+    county: str
+    income_monthly: float
+    household_size: int
+    energy_need: bool
+    disconnect_notice: bool
+
+def harmonize_global_to_local(req: HarmonizationRequest):
+    local = LOCAL_CONFIG.get(req.county)
+    if not local:
+        return {"error": f"County {req.county} not supported for harmonization."}
+
+    adjusted_income_limit = local["income_limit"] * req.household_size
+
+    # Apply SDG modifiers deterministically
+    for sdg, result in req.sdg_compliance.items():
+        if sdg in GLOBAL_RULES and result["compliant"]:
+            rule = GLOBAL_RULES[sdg]
+            if rule["field"] == "income_monthly":
+                adjusted_income_limit *= rule["local_factor"]
+
+    eligible = req.income_monthly <= adjusted_income_limit
+
+    if local["requires_disconnect"] and not req.disconnect_notice:
+        eligible = False
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "country": req.country,
+        "county": req.county,
+        "adjusted_income_limit": adjusted_income_limit,
+        "eligible": eligible,
+        "sdg_used": list(req.sdg_compliance.keys())
+    }
+
+def demo():
+    sample = HarmonizationRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        country="CAN",
+        sdg_compliance={
+            "SDG1": {"goal": "No Poverty", "compliant": True},
+            "SDG7": {"goal": "Affordable Energy", "compliant": True}
+        },
+        county="IN-Vigo",
+        income_monthly=1500,
+        household_size=2,
+        energy_need=True,
+        disconnect_notice=True
+    )
+    print(harmonize_global_to_local(sample))
+
+if __name__ == "__main__":
+    demo()
