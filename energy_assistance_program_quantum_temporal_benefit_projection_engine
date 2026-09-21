@@ -1,0 +1,125 @@
+from dataclasses import dataclass
+import time
+import math
+import random
+
+QUANTUM_FIELDS = {
+    "Q1": {"probability": 0.92, "variance": 0.08},
+    "Q2": {"probability": 0.85, "variance": 0.12},
+    "Q3": {"probability": 0.78, "variance": 0.15},
+    "Q4": {"probability": 0.95, "variance": 0.05}
+}
+
+TEMPORAL_TRAJECTORIES = {
+    "Present": {"drift": 1.0, "stability": 0.98},
+    "NearFuture": {"drift": 1.15, "stability": 0.90},
+    "FarFuture": {"drift": 1.35, "stability": 0.85},
+    "ParallelFuture": {"drift": 1.25, "stability": 0.88}
+}
+
+PROGRAM_BASE = {
+    "LIHEAP": 300,
+    "SNAP": 250,
+    "Medicaid": 0,
+    "Housing": 400,
+    "TANF": 200
+}
+
+@dataclass
+class QuantumTemporalSignal:
+    quantum_field: str
+    trajectory: str
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class QuantumTemporalRequest:
+    member_id: str
+    name: str
+    program: str
+    household_size: int
+    sdg_vector: dict
+    signals: list  # list[QuantumTemporalSignal]
+
+def compute_quantum_factor(field: str, confidence: float):
+    if field not in QUANTUM_FIELDS:
+        return 0
+    q = QUANTUM_FIELDS[field]
+    base = q["probability"] * confidence
+    return round(base * (1 - q["variance"]), 4)
+
+def compute_temporal_factor(trajectory: str):
+    if trajectory not in TEMPORAL_TRAJECTORIES:
+        return 0
+    t = TEMPORAL_TRAJECTORIES[trajectory]
+    return round(t["drift"] * t["stability"], 4)
+
+def compute_sdg_modifier(sdg_vector: dict):
+    modifier = 1.0
+    for sdg, compliant in sdg_vector.items():
+        if compliant:
+            modifier *= 1.05
+    return round(modifier, 4)
+
+def project(req: QuantumTemporalRequest):
+    if req.program not in PROGRAM_BASE:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base_amount = PROGRAM_BASE[req.program] * req.household_size
+
+    projections = []
+    breakdown = []
+
+    for sig in req.signals:
+        q_factor = compute_quantum_factor(sig.quantum_field, sig.confidence)
+        t_factor = compute_temporal_factor(sig.trajectory)
+
+        projection = round(base_amount * q_factor * t_factor, 2)
+        projections.append(projection)
+
+        breakdown.append({
+            "quantum_field": sig.quantum_field,
+            "trajectory": sig.trajectory,
+            "confidence": sig.confidence,
+            "quantum_factor": q_factor,
+            "temporal_factor": t_factor,
+            "projection": projection
+        })
+
+    if not projections:
+        return {"error": "No quantum‑temporal signals provided."}
+
+    # Deterministic projection: weighted temporal‑quantum mean
+    final_projection = round(sum(projections) / len(projections), 2)
+
+    sdg_modifier = compute_sdg_modifier(req.sdg_vector)
+    final_projection = round(final_projection * sdg_modifier, 2)
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "base_amount": base_amount,
+        "sdg_modifier": sdg_modifier,
+        "final_projection": final_projection,
+        "breakdown": breakdown,
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = QuantumTemporalRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        household_size=2,
+        sdg_vector={"SDG1": True, "SDG7": True},
+        signals=[
+            QuantumTemporalSignal("Q1", "Present", 0.9),
+            QuantumTemporalSignal("Q2", "NearFuture", 0.8),
+            QuantumTemporalSignal("Q3", "FarFuture", 0.7),
+            QuantumTemporalSignal("Q4", "ParallelFuture", 0.85)
+        ]
+    )
+    print(project(sample))
+
+if __name__ == "__main__":
+    demo()
