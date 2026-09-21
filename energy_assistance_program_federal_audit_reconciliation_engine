@@ -1,0 +1,78 @@
+import json
+from dataclasses import dataclass, asdict
+
+@dataclass
+class ReconciliationResult:
+    total_entries: int
+    missing_fields: int
+    mismatched_counts: int
+    unresolved_escalations: int
+    summary: str
+
+def load_logs(log_files):
+    logs = []
+    for file in log_files:
+        try:
+            with open(file, "r") as f:
+                logs.append(json.load(f))
+        except:
+            continue
+    return logs
+
+def reconcile(applications, escalations, reports):
+    missing_fields = 0
+    mismatched_counts = 0
+    unresolved_escalations = 0
+
+    # Check for missing required fields
+    required = ["member_id", "eligible", "county"]
+    for app in applications:
+        for field in required:
+            if field not in app:
+                missing_fields += 1
+
+    # Check if federal report counts match application logs
+    for report in reports:
+        if report.get("total_applications") != len(applications):
+            mismatched_counts += 1
+
+    # Check escalations for unresolved cases
+    for esc in escalations:
+        if "reason" not in esc or "member_id" not in esc:
+            unresolved_escalations += 1
+
+    summary = (
+        "Reconciliation complete. "
+        f"{missing_fields} missing fields, "
+        f"{mismatched_counts} count mismatches, "
+        f"{unresolved_escalations} unresolved escalations."
+    )
+
+    result = ReconciliationResult(
+        total_entries=len(applications) + len(escalations) + len(reports),
+        missing_fields=missing_fields,
+        mismatched_counts=mismatched_counts,
+        unresolved_escalations=unresolved_escalations,
+        summary=summary
+    )
+
+    return asdict(result)
+
+def demo():
+    applications = [
+        {"member_id": "LUCR-001", "eligible": True, "county": "Vigo"},
+        {"member_id": "LUCR-002", "eligible": False, "county": "Clay"}
+    ]
+
+    escalations = [
+        {"member_id": "LUCR-002", "reason": "Eligible but not submitted"}
+    ]
+
+    reports = [
+        {"total_applications": 2, "eligible_count": 1, "ineligible_count": 1}
+    ]
+
+    print(reconcile(applications, escalations, reports))
+
+if __name__ == "__main__":
+    demo()
