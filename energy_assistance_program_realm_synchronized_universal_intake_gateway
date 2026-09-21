@@ -1,0 +1,88 @@
+from dataclasses import dataclass
+import time
+
+REALM_INTAKE_RULES = {
+    "Physical": {"weight": 1.0, "stability": 0.98},
+    "Quantum": {"weight": 1.3, "stability": 0.85},
+    "Temporal": {"weight": 1.5, "stability": 0.90},
+    "Simulated": {"weight": 0.9, "stability": 0.99},
+    "Parallel": {"weight": 1.2, "stability": 0.88}
+}
+
+INTAKE_FIELDS = [
+    "income_monthly",
+    "household_size",
+    "disconnect_notice",
+    "sdg_vector",
+    "program"
+]
+
+@dataclass
+class RealmIntake:
+    realm: str
+    data: dict  # {field: value}
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class UniversalIntakeRequest:
+    member_id: str
+    name: str
+    realms: list  # list[RealmIntake]
+
+def compute_realm_weight(realm: str, confidence: float):
+    if realm not in REALM_INTAKE_RULES:
+        return 0
+    r = REALM_INTAKE_RULES[realm]
+    return round(confidence * r["weight"] * r["stability"], 4)
+
+def fuse_intake(req: UniversalIntakeRequest):
+    fused = {field: [] for field in INTAKE_FIELDS}
+    weights = []
+
+    for realm_intake in req.realms:
+        w = compute_realm_weight(realm_intake.realm, realm_intake.confidence)
+        weights.append(w)
+
+        for field in INTAKE_FIELDS:
+            if field in realm_intake.data:
+                fused[field].append((realm_intake.data[field], w))
+
+    final_packet = {}
+    for field, values in fused.items():
+        if not values:
+            final_packet[field] = None
+            continue
+
+        # Weighted deterministic fusion
+        total_weight = sum(w for _, w in values)
+        if total_weight == 0:
+            final_packet[field] = values[0][0]
+            continue
+
+        # Numeric fields: weighted average
+        if isinstance(values[0][0], (int, float)):
+            final_packet[field] = round(
+                sum(v * w for v, w in values) / total_weight, 4
+            )
+        # Boolean fields: weighted majority
+        elif isinstance(values[0][0], bool):
+            score = sum((1 if v else 0) * w for v, w in values)
+            final_packet[field] = score >= (total_weight / 2)
+        # Dict fields (SDG vectors): merge compliant flags
+        elif isinstance(values[0][0], dict):
+            merged = {}
+            for v, w in values:
+                for sdg, compliant in v.items():
+                    if sdg not in merged:
+                        merged[sdg] = 0
+                    merged[sdg] += (1 if compliant else 0) * w
+            final_packet[field] = {
+                sdg: merged[sdg] >= (total_weight / 2)
+                for sdg in merged
+            }
+        # Strings: highest‑weight value wins
+        else:
+            final_packet[field] = max(values, key=lambda x: x[1])[0]
+
+    return {
+        "member_id
