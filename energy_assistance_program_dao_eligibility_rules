@@ -1,0 +1,44 @@
+from dataclasses import dataclass
+
+# DAO-governed parameters (these would be updated via governance proposals)
+DAO_PARAMETERS = {
+    "income_per_person": 900.0,
+    "max_household_size": 10,
+    "require_disconnect_notice": True
+}
+
+@dataclass
+class Intake:
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+
+def evaluate(intake: Intake):
+    reasons = []
+
+    max_income = DAO_PARAMETERS["income_per_person"] * intake.household_size
+    if intake.income_monthly > max_income:
+        reasons.append("Income exceeds DAO-governed threshold.")
+
+    if intake.household_size < 1 or intake.household_size > DAO_PARAMETERS["max_household_size"]:
+        reasons.append("Household size outside allowed range.")
+
+    if DAO_PARAMETERS["require_disconnect_notice"] and not intake.disconnect_notice:
+        reasons.append("Disconnect notice required by DAO rules.")
+
+    return {
+        "eligible": len(reasons) == 0,
+        "reasons": reasons,
+        "parameters_used": DAO_PARAMETERS
+    }
+
+def demo():
+    sample = Intake(
+        income_monthly=1500,
+        household_size=2,
+        disconnect_notice=True
+    )
+    print(evaluate(sample))
+
+if __name__ == "__main__":
+    demo()
