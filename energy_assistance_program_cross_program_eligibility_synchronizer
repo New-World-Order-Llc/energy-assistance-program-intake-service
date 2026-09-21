@@ -1,0 +1,50 @@
+from dataclasses import dataclass
+
+PROGRAMS = {
+    "LIHEAP": {"income_limit": 900, "requires_disconnect": True},
+    "SNAP": {"income_limit": 1100, "requires_disconnect": False},
+    "Medicaid": {"income_limit": 1400, "requires_disconnect": False},
+    "TANF": {"income_limit": 800, "requires_disconnect": False}
+}
+
+@dataclass
+class MemberIntake:
+    member_id: str
+    name: str
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+
+def check_program(program: str, intake: MemberIntake):
+    rules = PROGRAMS[program]
+    max_income = rules["income_limit"] * intake.household_size
+
+    eligible = intake.income_monthly <= max_income
+    if rules["requires_disconnect"] and not intake.disconnect_notice:
+        eligible = False
+
+    return {
+        "program": program,
+        "eligible": eligible,
+        "income_limit": max_income,
+        "requires_disconnect": rules["requires_disconnect"]
+    }
+
+def synchronize(intake: MemberIntake):
+    results = {}
+    for program in PROGRAMS:
+        results[program] = check_program(program, intake)
+    return results
+
+def demo():
+    intake = MemberIntake(
+        member_id="LUCR-001",
+        name="John Doe",
+        income_monthly=1500,
+        household_size=2,
+        disconnect_notice=True
+    )
+    print(synchronize(intake))
+
+if __name__ == "__main__":
+    demo()
