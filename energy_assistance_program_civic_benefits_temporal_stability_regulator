@@ -1,0 +1,84 @@
+from dataclasses import dataclass
+import time
+import math
+
+TIMELINE_FACTORS = {
+    "Present": {"drift": 1.0, "coherence": 0.98},
+    "Future": {"drift": 1.15, "coherence": 0.90},
+    "Past": {"drift": 0.85, "coherence": 0.99},
+    "Parallel": {"drift": 1.25, "coherence": 0.88}
+}
+
+PROGRAM_BASELINES = {
+    "LIHEAP": 300,
+    "SNAP": 250,
+    "Medicaid": 0,
+    "Housing": 400,
+    "TANF": 200
+}
+
+@dataclass
+class TemporalRequest:
+    member_id: str
+    name: str
+    program: str
+    timeline: str
+    income_monthly: float
+    household_size: int
+    sdg_vector: dict  # {"SDG1": True, "SDG7": False}
+
+def compute_temporal_baseline(req: TemporalRequest):
+    if req.timeline not in TIMELINE_FACTORS:
+        return {"error": f"Timeline {req.timeline} not recognized."}
+
+    if req.program not in PROGRAM_BASELINES:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base = PROGRAM_BASELINES[req.program] * req.household_size
+    factors = TIMELINE_FACTORS[req.timeline]
+
+    # Apply drift
+    adjusted = base * factors["drift"]
+
+    # Apply SDG modifiers
+    for sdg, compliant in req.sdg_vector.items():
+        if compliant:
+            adjusted *= 1.05
+
+    # Apply coherence dampening
+    adjusted *= factors["coherence"]
+
+    return round(adjusted, 2)
+
+def regulate(req: TemporalRequest):
+    baseline = compute_temporal_baseline(req)
+    if isinstance(baseline, dict) and "error" in baseline:
+        return baseline
+
+    eligible = req.income_monthly <= baseline
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "timeline": req.timeline,
+        "temporal_baseline": baseline,
+        "eligible": eligible,
+        "stability_index": round(baseline / (req.income_monthly + 1), 4),
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = TemporalRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        timeline="Future",
+        income_monthly=1500,
+        household_size=2,
+        sdg_vector={"SDG1": True, "SDG7": True}
+    )
+    print(regulate(sample))
+
+if __name__ == "__main__":
+    demo()
