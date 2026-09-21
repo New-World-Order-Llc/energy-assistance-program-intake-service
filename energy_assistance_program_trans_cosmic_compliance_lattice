@@ -1,0 +1,111 @@
+from dataclasses import dataclass
+import time
+import math
+
+COSMIC_LAYERS = {
+    "Physical": {"gravity": 1.0, "entropy": 0.98},
+    "Quantum": {"gravity": 1.3, "entropy": 0.85},
+    "Temporal": {"gravity": 1.5, "entropy": 0.90},
+    "Simulated": {"gravity": 0.9, "entropy": 0.99},
+    "Parallel": {"gravity": 1.2, "entropy": 0.88},
+    "Cosmic": {"gravity": 2.0, "entropy": 0.70},
+    "TransCosmic": {"gravity": 2.5, "entropy": 0.65}
+}
+
+PROGRAM_LIMITS = {
+    "LIHEAP": 1500,
+    "SNAP": 1300,
+    "Medicaid": 1600,
+    "Housing": 1400,
+    "TANF": 1200
+}
+
+@dataclass
+class CosmicSignal:
+    layer: str
+    compliant: bool
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class TransCosmicRequest:
+    member_id: str
+    name: str
+    program: str
+    income_monthly: float
+    household_size: int
+    sdg_vector: dict
+    signals: list  # list[CosmicSignal]
+
+def compute_layer_weight(signal: CosmicSignal):
+    if signal.layer not in COSMIC_LAYERS:
+        return 0
+    layer = COSMIC_LAYERS[signal.layer]
+    base = signal.confidence * layer["gravity"]
+    return round(base * layer["entropy"], 4)
+
+def compute_sdg_factor(sdg_vector: dict):
+    factor = 1.0
+    for sdg, compliant in sdg_vector.items():
+        if compliant:
+            factor *= 1.05
+    return round(factor, 4)
+
+def evaluate_lattice(req: TransCosmicRequest):
+    if req.program not in PROGRAM_LIMITS:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base_limit = PROGRAM_LIMITS[req.program] * req.household_size
+
+    layer_weights = []
+    for sig in req.signals:
+        w = compute_layer_weight(sig)
+        layer_weights.append(w)
+
+    if len(layer_weights) == 0:
+        return {"error": "No cosmic signals provided."}
+
+    # Deterministic lattice fusion: cosmic harmonic‑geometric hybrid
+    harmonic = len(layer_weights) / sum(1 / max(w, 0.0001) for w in layer_weights)
+    geometric = math.prod(max(w, 0.0001) for w in layer_weights) ** (1 / len(layer_weights))
+
+    lattice_index = round((harmonic + geometric) / 2, 4)
+
+    sdg_factor = compute_sdg_factor(req.sdg_vector)
+
+    adjusted_limit = round(base_limit * lattice_index * sdg_factor, 2)
+    eligible = req.income_monthly <= adjusted_limit
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "base_limit": base_limit,
+        "lattice_index": lattice_index,
+        "sdg_factor": sdg_factor,
+        "adjusted_limit": adjusted_limit,
+        "eligible": eligible,
+        "layer_breakdown": [
+            {
+                "layer": sig.layer,
+                "compliant": sig.compliant,
+                "confidence": sig.confidence,
+                "weight": compute_layer_weight(sig)
+            }
+            for sig in req.signals
+        ],
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = TransCosmicRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        income_monthly=1500,
+        household_size=2,
+        sdg_vector={"SDG1": True, "SDG7": True},
+        signals=[
+            CosmicSignal("Physical", True, 0.9),
+            CosmicSignal("Quantum", True, 0.7),
+            CosmicSignal("Temporal", True, 0.6),
+            CosmicSignal("Simulated", True, 0
