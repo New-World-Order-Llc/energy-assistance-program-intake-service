@@ -1,0 +1,9 @@
+{
+  "agency": "Energy Assistance Program - Western Indiana Community Action Agency",
+  "address": "705 S 5th St, Terre Haute, IN 47807",
+  "phone": "812-234-3517",
+  "email": "via_state_portal_only",
+  "application_portal": "https://www.in.gov/ihcda/homeowners-and-renters/low-income-home-energy-assistance-program-liheap/",
+  "auto_apply_supported": true,
+  "workflow": "Beast System 3.0 submits intake packet → routes to state portal → local office receives case → status returned to member dashboard."
+}
