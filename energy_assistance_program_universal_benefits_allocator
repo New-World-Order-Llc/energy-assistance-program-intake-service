@@ -1,0 +1,80 @@
+from dataclasses import dataclass
+
+BENEFIT_TABLE = {
+    "LIHEAP": {"base": 300, "multiplier": 1.0},
+    "SNAP": {"base": 250, "multiplier": 0.9},
+    "Medicaid": {"base": 0, "multiplier": 1.0},  # coverage, not cash
+    "Housing": {"base": 400, "multiplier": 1.1},
+    "TANF": {"base": 200, "multiplier": 1.2}
+}
+
+GLOBAL_MODIFIERS = {
+    "SDG1": 1.15,   # poverty reduction emphasis
+    "SDG7": 1.05,   # energy access emphasis
+    "SDG10": 1.20   # inequality reduction emphasis
+}
+
+@dataclass
+class UniversalRequest:
+    member_id: str
+    name: str
+    country: str
+    income_monthly: float
+    household_size: int
+    sdg_compliance: dict
+    program_eligibility: dict  # {program: bool}
+
+def compute_base_allocation(program: str, eligible: bool):
+    if not eligible:
+        return 0
+    config = BENEFIT_TABLE[program]
+    return config["base"] * config["multiplier"]
+
+def apply_global_modifiers(amount: float, sdg_compliance: dict):
+    modified = amount
+    for sdg, result in sdg_compliance.items():
+        if result["compliant"] and sdg in GLOBAL_MODIFIERS:
+            modified *= GLOBAL_MODIFIERS[sdg]
+    return modified
+
+def allocate(req: UniversalRequest):
+    allocations = {}
+
+    for program, eligible in req.program_eligibility.items():
+        base = compute_base_allocation(program, eligible)
+        final = apply_global_modifiers(base, req.sdg_compliance)
+        allocations[program] = round(final, 2)
+
+    total = sum(allocations.values())
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "country": req.country,
+        "allocations": allocations,
+        "total_benefits": total
+    }
+
+def demo():
+    sample = UniversalRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        country="CAN",
+        income_monthly=1500,
+        household_size=2,
+        sdg_compliance={
+            "SDG1": {"goal": "No Poverty", "compliant": True},
+            "SDG7": {"goal": "Affordable Energy", "compliant": True}
+        },
+        program_eligibility={
+            "LIHEAP": True,
+            "SNAP": True,
+            "Medicaid": True,
+            "Housing": False,
+            "TANF": True
+        }
+    )
+    print(allocate(sample))
+
+if __name__ == "__main__":
+    demo()
