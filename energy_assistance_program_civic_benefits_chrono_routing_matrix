@@ -1,0 +1,90 @@
+from dataclasses import dataclass
+import time
+import math
+
+TIMELINE_CHANNELS = {
+    "Present": {"latency": 1.0, "priority": 1.0},
+    "Past": {"latency": 0.85, "priority": 0.9},
+    "Future": {"latency": 1.25, "priority": 1.2},
+    "Parallel": {"latency": 1.15, "priority": 1.1}
+}
+
+PROGRAM_WEIGHTS = {
+    "LIHEAP": 1.0,
+    "SNAP": 0.95,
+    "Medicaid": 1.1,
+    "Housing": 1.2,
+    "TANF": 0.9
+}
+
+@dataclass
+class ChronoRoutingRequest:
+    member_id: str
+    name: str
+    program: str
+    income_monthly: float
+    household_size: int
+    sdg_vector: dict  # {"SDG1": True, "SDG7": False}
+    timeline_preferences: list  # ["Present", "Future", ...]
+
+def compute_channel_score(program: str, timeline: str, sdg_vector: dict):
+    if timeline not in TIMELINE_CHANNELS:
+        return 0
+
+    base = PROGRAM_WEIGHTS.get(program, 1.0)
+    channel = TIMELINE_CHANNELS[timeline]
+
+    score = base * channel["priority"]
+
+    # SDG boosts
+    for sdg, compliant in sdg_vector.items():
+        if compliant:
+            score *= 1.05
+
+    # Latency dampening
+    score /= channel["latency"]
+
+    return round(score, 4)
+
+def generate_matrix(req: ChronoRoutingRequest):
+    matrix = {}
+
+    for timeline in TIMELINE_CHANNELS.keys():
+        score = compute_channel_score(req.program, timeline, req.sdg_vector)
+        matrix[timeline] = {
+            "timeline": timeline,
+            "score": score,
+            "preferred": timeline in req.timeline_preferences
+        }
+
+    # Deterministic routing:
+    # Highest score among preferred timelines wins.
+    preferred_scores = [m for m in matrix.values() if m["preferred"]]
+    if preferred_scores:
+        best = max(preferred_scores, key=lambda x: x["score"])
+    else:
+        best = max(matrix.values(), key=lambda x: x["score"])
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "matrix": matrix,
+        "routed_timeline": best["timeline"],
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = ChronoRoutingRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        income_monthly=1500,
+        household_size=2,
+        sdg_vector={"SDG1": True, "SDG7": True},
+        timeline_preferences=["Future", "Parallel"]
+    )
+    print(generate_matrix(sample))
+
+if __name__ == "__main__":
+    demo()
