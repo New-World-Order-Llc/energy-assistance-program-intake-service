@@ -1,0 +1,107 @@
+from dataclasses import dataclass
+import time
+import math
+
+REALM_CHANNELS = {
+    "Physical": {"priority": 1.0, "latency": 1.0, "coherence": 0.98},
+    "Quantum": {"priority": 1.3, "latency": 1.2, "coherence": 0.85},
+    "Temporal": {"priority": 1.5, "latency": 1.4, "coherence": 0.90},
+    "Simulated": {"priority": 0.9, "latency": 0.8, "coherence": 0.99},
+    "Parallel": {"priority": 1.2, "latency": 1.1, "coherence": 0.88},
+    "Cosmic": {"priority": 1.8, "latency": 1.6, "coherence": 0.75},
+    "TransCosmic": {"priority": 2.2, "latency": 1.9, "coherence": 0.70}
+}
+
+PROGRAM_WEIGHTS = {
+    "LIHEAP": 1.0,
+    "SNAP": 0.95,
+    "Medicaid": 1.1,
+    "Housing": 1.2,
+    "TANF": 0.9
+}
+
+@dataclass
+class RealmRouteSignal:
+    realm: str
+    confidence: float  # 0.0–1.0
+    sdg_vector: dict   # {"SDG1": True, "SDG7": False}
+
+@dataclass
+class PanRealmRoutingRequest:
+    member_id: str
+    name: str
+    program: str
+    household_size: int
+    income_monthly: float
+    signals: list  # list[RealmRouteSignal]
+
+def compute_realm_score(signal: RealmRouteSignal, program: str):
+    if signal.realm not in REALM_CHANNELS:
+        return 0
+
+    channel = REALM_CHANNELS[signal.realm]
+    base = PROGRAM_WEIGHTS.get(program, 1.0)
+
+    score = base * channel["priority"] * signal.confidence
+
+    # SDG boosts
+    for sdg, compliant in signal.sdg_vector.items():
+        if compliant:
+            score *= 1.05
+
+    # Latency dampening
+    score /= channel["latency"]
+
+    # Coherence stabilization
+    score *= channel["coherence"]
+
+    return round(score, 4)
+
+def route_pan_realm(req: PanRealmRoutingRequest):
+    realm_scores = {}
+
+    for sig in req.signals:
+        score = compute_realm_score(sig, req.program)
+        realm_scores[sig.realm] = score
+
+    if not realm_scores:
+        return {"error": "No realm signals provided."}
+
+    # Deterministic routing: highest score wins
+    best_realm = max(realm_scores, key=lambda r: realm_scores[r])
+    best_score = realm_scores[best_realm]
+
+    # Income threshold adjustment
+    adjusted_limit = round((req.household_size * 1000) * (1 + best_score), 2)
+    eligible = req.income_monthly <= adjusted_limit
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "realm_scores": realm_scores,
+        "routed_realm": best_realm,
+        "routed_node": f"{best_realm}-Unified-Governance-Node",
+        "adjusted_income_limit": adjusted_limit,
+        "eligible": eligible,
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = PanRealmRoutingRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        household_size=2,
+        income_monthly=1500,
+        signals=[
+            RealmRouteSignal("Physical", 0.9, {"SDG1": True}),
+            RealmRouteSignal("Quantum", 0.7, {"SDG1": True, "SDG7": True}),
+            RealmRouteSignal("Simulated", 0.95, {"SDG1": True}),
+            RealmRouteSignal("TransCosmic", 0.5, {"SDG1": True})
+        ]
+    )
+    print(route_pan_realm(sample))
+
+if __name__ == "__main__":
+    demo()
