@@ -1,0 +1,98 @@
+from dataclasses import dataclass
+import time
+
+REALM_WEIGHTS = {
+    "Physical": {"weight": 1.0, "coherence": 0.98},
+    "Quantum": {"weight": 1.3, "coherence": 0.85},
+    "Temporal": {"weight": 1.5, "coherence": 0.90},
+    "Simulated": {"weight": 0.9, "coherence": 0.99},
+    "Parallel": {"weight": 1.2, "coherence": 0.88}
+}
+
+PROGRAM_LIMITS = {
+    "LIHEAP": 1500,
+    "SNAP": 1300,
+    "Medicaid": 1600,
+    "Housing": 1400,
+    "TANF": 1200
+}
+
+@dataclass
+class RealmEligibilitySignal:
+    realm: str
+    eligible: bool
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class FusionRequest:
+    member_id: str
+    name: str
+    program: str
+    income_monthly: float
+    household_size: int
+    signals: list  # list[RealmEligibilitySignal]
+
+def compute_realm_score(signal: RealmEligibilitySignal):
+    if signal.realm not in REALM_WEIGHTS:
+        return 0
+    w = REALM_WEIGHTS[signal.realm]
+    base = signal.confidence * w["weight"]
+    return round(base * w["coherence"], 4)
+
+def fuse_signals(req: FusionRequest):
+    if req.program not in PROGRAM_LIMITS:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base_limit = PROGRAM_LIMITS[req.program] * req.household_size
+
+    scores = []
+    for sig in req.signals:
+        score = compute_realm_score(sig)
+        scores.append(score)
+
+    # Deterministic fusion: weighted average of realm scores
+    fusion_index = round(sum(scores) / len(scores), 4)
+
+    # Eligibility threshold: fusion index modifies income limit
+    adjusted_limit = round(base_limit * (1 + fusion_index), 2)
+
+    eligible = req.income_monthly <= adjusted_limit
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "fusion_index": fusion_index,
+        "adjusted_income_limit": adjusted_limit,
+        "eligible": eligible,
+        "realm_breakdown": [
+            {
+                "realm": sig.realm,
+                "eligible": sig.eligible,
+                "confidence": sig.confidence,
+                "score": compute_realm_score(sig)
+            }
+            for sig in req.signals
+        ],
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = FusionRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        income_monthly=1500,
+        household_size=2,
+        signals=[
+            RealmEligibilitySignal("Physical", True, 0.9),
+            RealmEligibilitySignal("Quantum", True, 0.7),
+            RealmEligibilitySignal("Temporal", False, 0.6),
+            RealmEligibilitySignal("Simulated", True, 0.95),
+            RealmEligibilitySignal("Parallel", True, 0.8)
+        ]
+    )
+    print(fuse_signals(sample))
+
+if __name__ == "__main__":
+    demo()
