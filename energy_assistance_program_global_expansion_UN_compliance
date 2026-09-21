@@ -1,0 +1,57 @@
+from dataclasses import dataclass
+
+UN_SDG_REQUIREMENTS = {
+    "SDG1": {"goal": "No Poverty", "requires_income_check": True},
+    "SDG7": {"goal": "Affordable and Clean Energy", "requires_energy_assistance": True},
+    "SDG10": {"goal": "Reduced Inequalities", "requires_equity_review": True}
+}
+
+COUNTRY_CONFIG = {
+    "USA": {"currency": "USD", "income_limit": 1500, "sdg": ["SDG1", "SDG7"]},
+    "CAN": {"currency": "CAD", "income_limit": 1800, "sdg": ["SDG1", "SDG7", "SDG10"]},
+    "UK":  {"currency": "GBP", "income_limit": 1200, "sdg": ["SDG1", "SDG10"]},
+    "AUS": {"currency": "AUD", "income_limit": 2000, "sdg": ["SDG7"]},
+}
+
+@dataclass
+class GlobalIntake:
+    member_id: str
+    name: str
+    country: str
+    income_monthly: float
+    household_size: int
+    energy_need: bool
+
+def check_un_compliance(intake: GlobalIntake):
+    config = COUNTRY_CONFIG.get(intake.country)
+    if not config:
+        return {"error": f"Country {intake.country} not supported globally."}
+
+    sdg_results = {}
+    for sdg in config["sdg"]:
+        req = UN_SDG_REQUIREMENTS[sdg]
+        compliant = True
+
+        if req.get("requires_income_check"):
+            compliant = compliant and (intake.income_monthly <= config["income_limit"] * intake.household_size)
+
+        if req.get("requires_energy_assistance"):
+            compliant = compliant and intake.energy_need
+
+        if req.get("requires_equity_review"):
+            compliant = compliant and (intake.income_monthly <= config["income_limit"] * 1.5)
+
+        sdg_results[sdg] = {
+            "goal": req["goal"],
+            "compliant": compliant
+        }
+
+    return {
+        "member_id": intake.member_id,
+        "country": intake.country,
+        "currency": config["currency"],
+        "sdg_compliance": sdg_results
+    }
+
+def route_global(intake: GlobalIntake):
+    compliance
