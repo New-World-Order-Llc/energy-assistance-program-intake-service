@@ -1,0 +1,69 @@
+import time
+from dataclasses import dataclass
+
+SYSTEM_METRICS = {
+    "SNAP": {"latency": 0.45, "throughput": 120, "queue": 30},
+    "Medicaid": {"latency": 0.60, "throughput": 150, "queue": 50},
+    "Housing": {"latency": 0.40, "throughput": 90, "queue": 20},
+    "TANF": {"latency": 0.55, "throughput": 70, "queue": 25},
+    "LIHEAP": {"latency": 0.75, "throughput": 110, "queue": 65}
+}
+
+@dataclass
+class OptimizationRequest:
+    member_id: str
+    name: str
+    required_system: str
+    priority: str  # low, medium, high
+
+def compute_efficiency(system: str, priority: str):
+    metrics = SYSTEM_METRICS[system]
+    latency = metrics["latency"]
+    throughput = metrics["throughput"]
+    queue = metrics["queue"]
+
+    priority_weight = {
+        "low": 1.0,
+        "medium": 0.8,
+        "high": 0.6
+    }.get(priority, 1.0)
+
+    score = (latency * priority_weight) + (queue / throughput)
+    return score
+
+def find_optimal_system(priority: str):
+    scores = {system: compute_efficiency(system, priority) for system in SYSTEM_METRICS}
+    return min(scores, key=scores.get)
+
+def optimize(request: OptimizationRequest):
+    required = request.required_system
+    required_score = compute_efficiency(required, request.priority)
+
+    if required_score > 0.85:
+        rerouted = find_optimal_system(request.priority)
+        return {
+            "member_id": request.member_id,
+            "name": request.name,
+            "original_system": required,
+            "rerouted_system": rerouted,
+            "reason": "Throughput optimization triggered"
+        }
+
+    return {
+        "member_id": request.member_id,
+        "name": request.name,
+        "assigned_system": required,
+        "reason": "System operating within deterministic throughput limits"
+    }
+
+def demo():
+    req = OptimizationRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        required_system="LIHEAP",
+        priority="high"
+    )
+    print(optimize(req))
+
+if __name__ == "__main__":
+    demo()
