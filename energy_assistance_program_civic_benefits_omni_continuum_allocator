@@ -1,0 +1,96 @@
+from dataclasses import dataclass
+import time
+import math
+
+CONTINUA = {
+    "Physical": {"multiplier": 1.0, "stability": 0.98},
+    "Quantum": {"multiplier": 1.3, "stability": 0.85},
+    "Temporal": {"multiplier": 1.5, "stability": 0.90},
+    "Simulated": {"multiplier": 0.9, "stability": 0.99},
+    "Parallel": {"multiplier": 1.2, "stability": 0.88},
+    "TransCosmic": {"multiplier": 1.8, "stability": 0.75}
+}
+
+PROGRAM_BASE = {
+    "LIHEAP": 300,
+    "SNAP": 250,
+    "Medicaid": 0,
+    "Housing": 400,
+    "TANF": 200
+}
+
+@dataclass
+class ContinuumSignal:
+    continuum: str
+    compliant: bool
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class OmniContinuumRequest:
+    member_id: str
+    name: str
+    program: str
+    household_size: int
+    sdg_vector: dict  # {"SDG1": True, "SDG7": False}
+    signals: list  # list[ContinuumSignal]
+
+def compute_continuum_weight(signal: ContinuumSignal):
+    if signal.continuum not in CONTINUA:
+        return 0
+    c = CONTINUA[signal.continuum]
+    base = signal.confidence * c["multiplier"]
+    return round(base * c["stability"], 4)
+
+def allocate_continuum(req: OmniContinuumRequest):
+    if req.program not in PROGRAM_BASE:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base_amount = PROGRAM_BASE[req.program] * req.household_size
+
+    continuum_weights = []
+    for sig in req.signals:
+        w = compute_continuum_weight(sig)
+        continuum_weights.append(w)
+
+    if len(continuum_weights) == 0:
+        return {"error": "No continuum signals provided."}
+
+    # Deterministic omni‑continuum fusion: geometric mean
+    product = 1
+    for w in continuum_weights:
+        product *= max(w, 0.0001)
+    geometric_mean = round(product ** (1 / len(continuum_weights)), 4)
+
+    # Apply SDG modifiers
+    sdg_factor = 1.0
+    for sdg, compliant in req.sdg_vector.items():
+        if compliant:
+            sdg_factor *= 1.05
+
+    final_amount = round(base_amount * geometric_mean * sdg_factor, 2)
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "base_amount": base_amount,
+        "geometric_mean": geometric_mean,
+        "sdg_factor": sdg_factor,
+        "final_allocation": final_amount,
+        "continuum_breakdown": [
+            {
+                "continuum": sig.continuum,
+                "compliant": sig.compliant,
+                "confidence": sig.confidence,
+                "weight": compute_continuum_weight(sig)
+            }
+            for sig in req.signals
+        ],
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = OmniContinuumRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program
