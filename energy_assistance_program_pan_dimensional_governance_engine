@@ -1,0 +1,103 @@
+from dataclasses import dataclass
+import time
+import math
+
+DIMENSION_GOVERNANCE = {
+    "Physical": {"authority": 1.0, "coherence": 0.98},
+    "Quantum": {"authority": 1.3, "coherence": 0.85},
+    "Temporal": {"authority": 1.5, "coherence": 0.90},
+    "Simulated": {"authority": 0.9, "coherence": 0.99},
+    "Parallel": {"authority": 1.2, "coherence": 0.88}
+}
+
+PROGRAM_BASELINES = {
+    "LIHEAP": 1500,
+    "SNAP": 1300,
+    "Medicaid": 1600,
+    "Housing": 1400,
+    "TANF": 1200
+}
+
+@dataclass
+class GovernanceSignal:
+    dimension: str
+    eligible: bool
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class PanDimensionalRequest:
+    member_id: str
+    name: str
+    program: str
+    income_monthly: float
+    household_size: int
+    signals: list  # list[GovernanceSignal]
+
+def compute_dimension_authority(signal: GovernanceSignal):
+    if signal.dimension not in DIMENSION_GOVERNANCE:
+        return 0
+    gov = DIMENSION_GOVERNANCE[signal.dimension]
+    base = signal.confidence * gov["authority"]
+    return round(base * gov["coherence"], 4)
+
+def synthesize_governance(req: PanDimensionalRequest):
+    if req.program not in PROGRAM_BASELINES:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base_limit = PROGRAM_BASELINES[req.program] * req.household_size
+
+    authority_scores = []
+    for sig in req.signals:
+        score = compute_dimension_authority(sig)
+        authority_scores.append(score)
+
+    # Deterministic synthesis: harmonic mean of authority scores
+    if len(authority_scores) == 0:
+        return {"error": "No governance signals provided."}
+
+    harmonic_mean = len(authority_scores) / sum(1 / s for s in authority_scores if s > 0)
+
+    adjusted_limit = round(base_limit * (1 + harmonic_mean), 2)
+    eligible = req.income_monthly <= adjusted_limit
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "pan_dimensional_authority": round(harmonic_mean, 4),
+        "adjusted_income_limit": adjusted_limit,
+        "eligible": eligible,
+        "dimension_breakdown": [
+            {
+                "dimension": sig.dimension,
+                "eligible": sig.eligible,
+                "confidence": sig.confidence,
+                "authority_score": compute_dimension_authority(sig)
+            }
+            for sig in req.signals
+        ],
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample_signals = [
+        GovernanceSignal("Physical", True, 0.9),
+        GovernanceSignal("Quantum", True, 0.7),
+        GovernanceSignal("Temporal", False, 0.6),
+        GovernanceSignal("Simulated", True, 0.95),
+        GovernanceSignal("Parallel", True, 0.8)
+    ]
+
+    sample = PanDimensionalRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        income_monthly=1500,
+        household_size=2,
+        signals=sample_signals
+    )
+
+    print(synthesize_governance(sample))
+
+if __name__ == "__main__":
+    demo()
