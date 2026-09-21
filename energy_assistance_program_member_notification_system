@@ -1,0 +1,36 @@
+import time
+
+NOTIFICATION_LOG = []
+
+def send_notification(member_id: str, channel: str, message: str):
+    entry = {
+        "member_id": member_id,
+        "channel": channel,
+        "message": message,
+        "timestamp": int(time.time())
+    }
+
+    # In Beast System 3.0, this would route to SMS, email, or dashboard.
+    NOTIFICATION_LOG.append(entry)
+    print(f"[{channel.upper()}] → {message}")
+
+    return entry
+
+def notify_eligibility(member_id: str, eligible: bool):
+    if eligible:
+        msg = "You are eligible for the Energy Assistance Program. Your application is being routed."
+    else:
+        msg = "You are not eligible for the Energy Assistance Program. Review your intake details."
+
+    return send_notification(member_id, "dashboard", msg)
+
+def notify_submission(member_id: str, agency: str):
+    msg = f"Your application has been submitted to {agency}. You will receive updates as it progresses."
+    return send_notification(member_id, "email", msg)
+
+def demo():
+    notify_eligibility("LUCR-001", True)
+    notify_submission("LUCR-001", "Western Indiana Community Action Agency")
+
+if __name__ == "__main__":
+    demo()
