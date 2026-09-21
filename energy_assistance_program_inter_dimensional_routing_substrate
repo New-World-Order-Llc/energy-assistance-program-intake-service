@@ -1,0 +1,83 @@
+from dataclasses import dataclass
+import math
+import time
+
+DIMENSION_RULES = {
+    "Physical": {"weight": 1.0, "stability": 0.95},
+    "Quantum": {"weight": 1.3, "stability": 0.85},
+    "Temporal": {"weight": 1.5, "stability": 0.75},
+    "Simulated": {"weight": 0.9, "stability": 0.99}
+}
+
+REALM_GATEWAYS = {
+    "Earth-Prime": {"base": 1000},
+    "Earth-Parallel": {"base": 1200},
+    "Civic-Sim-7": {"base": 800},
+    "Quantum-Node-3": {"base": 1500}
+}
+
+@dataclass
+class InterDimensionalRequest:
+    member_id: str
+    name: str
+    realm: str
+    dimension: str
+    income_monthly: float
+    household_size: int
+    sdg_vector: dict  # {"SDG1": True, "SDG7": False, ...}
+
+def compute_dimensional_limit(req: InterDimensionalRequest):
+    if req.realm not in REALM_GATEWAYS:
+        return {"error": f"Realm {req.realm} not recognized."}
+
+    if req.dimension not in DIMENSION_RULES:
+        return {"error": f"Dimension {req.dimension} not recognized."}
+
+    base = REALM_GATEWAYS[req.realm]["base"] * req.household_size
+    dim = DIMENSION_RULES[req.dimension]
+
+    # Apply dimensional weight
+    adjusted = base * dim["weight"]
+
+    # Apply SDG vector modifiers
+    for sdg, compliant in req.sdg_vector.items():
+        if compliant:
+            adjusted *= 1.05
+
+    # Apply stability dampening
+    adjusted *= dim["stability"]
+
+    return round(adjusted, 2)
+
+def route_interdimensional(req: InterDimensionalRequest):
+    limit = compute_dimensional_limit(req)
+    if isinstance(limit, dict) and "error" in limit:
+        return limit
+
+    eligible = req.income_monthly <= limit
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "realm": req.realm,
+        "dimension": req.dimension,
+        "income_limit": limit,
+        "eligible": eligible,
+        "routed_to": f"{req.realm}:{req.dimension}:Civic-Governance-Node",
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = InterDimensionalRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        realm="Quantum-Node-3",
+        dimension="Temporal",
+        income_monthly=2000,
+        household_size=2,
+        sdg_vector={"SDG1": True, "SDG7": True}
+    )
+    print(route_interdimensional(sample))
+
+if __name__ == "__main__":
+    demo()
