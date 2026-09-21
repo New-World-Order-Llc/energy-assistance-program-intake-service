@@ -1,0 +1,84 @@
+from dataclasses import dataclass
+
+PROGRAM_PRIORITIES = {
+    "LIHEAP": 1,
+    "SNAP": 2,
+    "Medicaid": 3,
+    "Housing": 4,
+    "TANF": 5
+}
+
+@dataclass
+class ProgramDecision:
+    program: str
+    eligible: bool
+    reason: str
+
+@dataclass
+class ConflictRequest:
+    member_id: str
+    name: str
+    decisions: list  # list[ProgramDecision]
+
+def detect_conflicts(decisions):
+    conflicts = []
+    for d in decisions:
+        if not d.eligible and "auto-eligible" in d.reason.lower():
+            conflicts.append({
+                "program": d.program,
+                "issue": "Eligibility mismatch",
+                "details": d.reason
+            })
+    return conflicts
+
+def resolve_conflicts(decisions):
+    conflicts = detect_conflicts(decisions)
+    if not conflicts:
+        return {"status": "no_conflicts", "final": decisions}
+
+    # Deterministic resolution:
+    # 1. Higher priority program overrides lower priority.
+    # 2. If conflict persists, escalate to human-review override system.
+    sorted_decisions = sorted(decisions, key=lambda d: PROGRAM_PRIORITIES[d.program])
+
+    final = []
+    for d in sorted_decisions:
+        if d.eligible:
+            final.append(d)
+        else:
+            # Check if a higher-priority program grants eligibility
+            higher = [x for x in sorted_decisions if PROGRAM_PRIORITIES[x.program] < PROGRAM_PRIORITIES[d.program] and x.eligible]
+            if higher:
+                final.append(ProgramDecision(
+                    program=d.program,
+                    eligible=True,
+                    reason=f"Overridden by higher-priority program {higher[0].program}"
+                ))
+            else:
+                final.append(d)
+
+    return {
+        "status": "resolved",
+        "conflicts": conflicts,
+        "final": final
+    }
+
+def demo():
+    decisions = [
+        ProgramDecision("LIHEAP", True, "Eligible"),
+        ProgramDecision("SNAP", False, "Auto-eligible based on income but flagged incorrectly"),
+        ProgramDecision("Medicaid", True, "Eligible"),
+        ProgramDecision("Housing", False, "Auto-eligible but missing rent burden data")
+    ]
+
+    req = ConflictRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        decisions=decisions
+    )
+
+    result = resolve_conflicts(req.decisions)
+    print(result)
+
+if __name__ == "__main__":
+    demo()
