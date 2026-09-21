@@ -1,0 +1,63 @@
+from dataclasses import dataclass
+
+AGENCY_MAP = {
+    "Vigo": {
+        "name": "Western Indiana Community Action Agency",
+        "address": "705 S 5th St, Terre Haute, IN 47807",
+        "phone": "812-234-3517",
+        "portal": "https://www.in.gov/ihcda/homeowners-and-renters/low-income-home-energy-assistance-program-liheap/"
+    },
+    "Clay": {
+        "name": "Clay County Human Services",
+        "address": "300 W South St, Brazil, IN 47834",
+        "phone": "812-448-8731",
+        "portal": "https://www.in.gov/ihcda/"
+    },
+    "Sullivan": {
+        "name": "Sullivan County Community Services",
+        "address": "32 N Court St, Sullivan, IN 47882",
+        "phone": "812-268-5157",
+        "portal": "https://www.in.gov/ihcda/"
+    }
+}
+
+@dataclass
+class IntakePacket:
+    member_id: str
+    name: str
+    county: str
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+
+def route(packet: IntakePacket):
+    agency = AGENCY_MAP.get(packet.county)
+    if not agency:
+        return {
+            "error": f"No routing agency found for county {packet.county}."
+        }
+
+    return {
+        "member_id": packet.member_id,
+        "name": packet.name,
+        "county": packet.county,
+        "agency": agency["name"],
+        "address": agency["address"],
+        "phone": agency["phone"],
+        "portal": agency["portal"],
+        "payload_ready": True
+    }
+
+def demo():
+    sample = IntakePacket(
+        member_id="LUCR-001",
+        name="John Doe",
+        county="Vigo",
+        income_monthly=1500,
+        household_size=2,
+        disconnect_notice=True
+    )
+    print(route(sample))
+
+if __name__ == "__main__":
+    demo()
