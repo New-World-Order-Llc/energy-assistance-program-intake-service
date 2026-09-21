@@ -1,0 +1,79 @@
+from dataclasses import dataclass
+import time
+import math
+
+CONTINUA = {
+    "Physical": {"coherence": 0.98, "weight": 1.0},
+    "Quantum": {"coherence": 0.85, "weight": 1.3},
+    "Temporal": {"coherence": 0.90, "weight": 1.5},
+    "Simulated": {"coherence": 0.99, "weight": 0.9},
+    "Parallel": {"coherence": 0.88, "weight": 1.2},
+    "Cosmic": {"coherence": 0.75, "weight": 1.8},
+    "TransCosmic": {"coherence": 0.70, "weight": 2.2}
+}
+
+PROGRAM_LIMITS = {
+    "LIHEAP": 1500,
+    "SNAP": 1300,
+    "Medicaid": 1600,
+    "Housing": 1400,
+    "TANF": 1200
+}
+
+@dataclass
+class ContinuumEligibilitySignal:
+    continuum: str
+    eligible: bool
+    confidence: float  # 0.0–1.0
+
+@dataclass
+class ContinuumHarmonizerRequest:
+    member_id: str
+    name: str
+    program: str
+    income_monthly: float
+    household_size: int
+    sdg_vector: dict
+    signals: list  # list[ContinuumEligibilitySignal]
+
+def compute_continuum_score(signal: ContinuumEligibilitySignal):
+    if signal.continuum not in CONTINUA:
+        return 0
+    c = CONTINUA[signal.continuum]
+    base = signal.confidence * c["weight"]
+    return round(base * c["coherence"], 4)
+
+def compute_sdg_factor(sdg_vector: dict):
+    factor = 1.0
+    for sdg, compliant in sdg_vector.items():
+        if compliant:
+            factor *= 1.05
+    return round(factor, 4)
+
+def harmonize(req: ContinuumHarmonizerRequest):
+    if req.program not in PROGRAM_LIMITS:
+        return {"error": f"Program {req.program} not recognized."}
+
+    base_limit = PROGRAM_LIMITS[req.program] * req.household_size
+
+    scores = []
+    for sig in req.signals:
+        score = compute_continuum_score(sig)
+        scores.append(score)
+
+    if not scores:
+        return {"error": "No continuum signals provided."}
+
+    # Deterministic harmonization: continuum‑wide weighted median
+    sorted_scores = sorted(scores)
+    mid = len(sorted_scores) // 2
+    if len(sorted_scores) % 2 == 1:
+        harmonized_index = sorted_scores[mid]
+    else:
+        harmonized_index = (sorted_scores[mid - 1] + sorted_scores[mid]) / 2
+
+    harmonized_index = round(harmonized_index, 4)
+
+    sdg_factor = compute_sdg_factor(req.sdg_vector)
+
+    adjusted_limit = round(base_limit * harmonized_index
