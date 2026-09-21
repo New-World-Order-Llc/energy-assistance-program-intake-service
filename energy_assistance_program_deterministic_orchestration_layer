@@ -1,0 +1,95 @@
+import time
+from intake_schema import validate
+from dao_rules import evaluate, Intake
+from routing_engine import route, IntakePacket
+from notifications import notify_eligibility, notify_submission
+from state_escalation import should_escalate, escalate
+from federal_reporting import generate_report
+
+APPLICATIONS = []
+ESCALATIONS = []
+
+def orchestrate(intake_payload):
+    # Step 1: Validate intake
+    validation = validate(intake_payload)
+    if not validation["valid"]:
+        return {"error": "Invalid intake", "details": validation["errors"]}
+
+    # Step 2: Eligibility check
+    intake = Intake(
+        income_monthly=intake_payload["income_monthly"],
+        household_size=intake_payload["household_size"],
+        disconnect_notice=intake_payload["disconnect_notice"]
+    )
+    eligibility = evaluate(intake)
+
+    # Step 3: Notify member
+    notify_eligibility(intake_payload["member_id"], eligibility["eligible"])
+
+    # Step 4: Routing
+    packet = IntakePacket(
+        member_id=intake_payload["member_id"],
+        name=intake_payload["name"],
+        county=intake_payload["county"],
+        income_monthly=intake_payload["income_monthly"],
+        household_size=intake_payload["household_size"],
+        disconnect_notice=intake_payload["disconnect_notice"]
+    )
+    routing = route(packet)
+
+    # Step 5: Submission notification
+    if routing.get("agency"):
+        notify_submission(intake_payload["member_id"], routing["agency"])
+
+    # Step 6: Escalation check
+    status = {
+        "member_id": intake_payload["member_id"],
+        "name": intake_payload["name"],
+        "county": intake_payload["county"],
+        "eligibility": "eligible" if eligibility["eligible"] else "ineligible",
+        "submitted": True,
+        "last_update": int(time.time())
+    }
+    reason = should_escalate(status)
+    if reason:
+        esc = escalate(
+            member_id=status["member_id"],
+            name=status["name"],
+            county=status["county"],
+            reason=reason
+        )
+        ESCALATIONS.append(esc)
+
+    # Step 7: Store application for federal reporting
+    APPLICATIONS.append({
+        "member_id": intake_payload["member_id"],
+        "eligible": eligibility["eligible"],
+        "county": intake_payload["county"]
+    })
+
+    return {
+        "validation": validation,
+        "eligibility": eligibility,
+        "routing": routing,
+        "escalation": reason or "none"
+    }
+
+def demo():
+    sample = {
+        "member_id": "LUCR-001",
+        "name": "John Doe",
+        "county": "Vigo",
+        "income_monthly": 1500,
+        "household_size": 2,
+        "disconnect_notice": True,
+        "utility_vendor": "Duke Energy"
+    }
+
+    result = orchestrate(sample)
+    print("Orchestration Result:", result)
+
+    print("\nFederal Report:")
+    print(generate_report(APPLICATIONS, ESCALATIONS))
+
+if __name__ == "__main__":
+    demo()
