@@ -1,0 +1,70 @@
+from dataclasses import dataclass
+
+CASE_WORKERS = {
+    "Vigo": [
+        {"id": "CW-101", "name": "Sarah M.", "specialty": "energy", "load": 12},
+        {"id": "CW-102", "name": "Marcus T.", "specialty": "housing", "load": 9},
+        {"id": "CW-103", "name": "Lena R.", "specialty": "general", "load": 7}
+    ],
+    "Clay": [
+        {"id": "CW-201", "name": "Derek P.", "specialty": "energy", "load": 5},
+        {"id": "CW-202", "name": "Holly S.", "specialty": "general", "load": 8}
+    ],
+    "Sullivan": [
+        {"id": "CW-301", "name": "Rita K.", "specialty": "energy", "load": 4}
+    ]
+}
+
+@dataclass
+class CaseAssignmentRequest:
+    member_id: str
+    name: str
+    county: str
+    urgency: str  # low, medium, high
+    program: str  # LIHEAP, SNAP, Housing, etc.
+
+def select_case_worker(county: str, program: str, urgency: str):
+    workers = CASE_WORKERS.get(county)
+    if not workers:
+        return {"error": f"No case workers available for county {county}."}
+
+    # Priority rules:
+    # 1. Match specialty if possible
+    # 2. Lower workload preferred
+    # 3. High urgency → lowest load worker regardless of specialty
+    if urgency == "high":
+        return sorted(workers, key=lambda w: w["load"])[0]
+
+    specialty_matches = [w for w in workers if w["specialty"] in [program.lower(), "general"]]
+    if specialty_matches:
+        return sorted(specialty_matches, key=lambda w: w["load"])[0]
+
+    return sorted(workers, key=lambda w: w["load"])[0]
+
+def assign(request: CaseAssignmentRequest):
+    worker = select_case_worker(request.county, request.program, request.urgency)
+    if "error" in worker:
+        return worker
+
+    return {
+        "member_id": request.member_id,
+        "member_name": request.name,
+        "assigned_worker": worker["name"],
+        "worker_id": worker["id"],
+        "county": request.county,
+        "urgency": request.urgency,
+        "program": request.program
+    }
+
+def demo():
+    req = CaseAssignmentRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        county="Vigo",
+        urgency="high",
+        program="LIHEAP"
+    )
+    print(assign(req))
+
+if __name__ == "__main__":
+    demo()
