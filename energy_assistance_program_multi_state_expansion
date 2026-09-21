@@ -1,0 +1,65 @@
+from dataclasses import dataclass
+
+STATE_CONFIG = {
+    "IN": {
+        "program": "LIHEAP",
+        "income_limit": 900,
+        "requires_disconnect": True,
+        "portal": "https://www.in.gov/ihcda/"
+    },
+    "IL": {
+        "program": "LIHEAP",
+        "income_limit": 950,
+        "requires_disconnect": False,
+        "portal": "https://www2.illinois.gov/dceo/"
+    },
+    "KY": {
+        "program": "LIHEAP",
+        "income_limit": 875,
+        "requires_disconnect": True,
+        "portal": "https://chfs.ky.gov/"
+    }
+}
+
+@dataclass
+class MultiStateIntake:
+    member_id: str
+    name: str
+    state: str
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+
+def evaluate_state(intake: MultiStateIntake):
+    config = STATE_CONFIG.get(intake.state)
+    if not config:
+        return {"error": f"State {intake.state} not supported."}
+
+    max_income = config["income_limit"] * intake.household_size
+    eligible = intake.income_monthly <= max_income
+
+    if config["requires_disconnect"] and not intake.disconnect_notice:
+        eligible = False
+
+    return {
+        "state": intake.state,
+        "program": config["program"],
+        "eligible": eligible,
+        "income_limit": max_income,
+        "requires_disconnect": config["requires_disconnect"],
+        "portal": config["portal"]
+    }
+
+def demo():
+    sample = MultiStateIntake(
+        member_id="LUCR-001",
+        name="John Doe",
+        state="IL",
+        income_monthly=1400,
+        household_size=2,
+        disconnect_notice=False
+    )
+    print(evaluate_state(sample))
+
+if __name__ == "__main__":
+    demo()
