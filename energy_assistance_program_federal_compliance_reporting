@@ -1,0 +1,56 @@
+import json
+import time
+from dataclasses import dataclass, asdict
+
+@dataclass
+class FederalReport:
+    report_id: str
+    generated_at: int
+    total_applications: int
+    eligible_count: int
+    ineligible_count: int
+    escalations: int
+    agency: str
+    county_breakdown: dict
+
+def generate_report(applications: list, escalations: list):
+    eligible = sum(1 for a in applications if a.get("eligible"))
+    ineligible = len(applications) - eligible
+
+    county_map = {}
+    for a in applications:
+        county = a.get("county", "Unknown")
+        county_map[county] = county_map.get(county, 0) + 1
+
+    report = FederalReport(
+        report_id=f"FED-{int(time.time())}",
+        generated_at=int(time.time()),
+        total_applications=len(applications),
+        eligible_count=eligible,
+        ineligible_count=ineligible,
+        escalations=len(escalations),
+        agency="Energy Assistance Program - WICAA",
+        county_breakdown=county_map
+    )
+
+    filename = f"federal_report_{report.generated_at}.json"
+    with open(filename, "w") as f:
+        json.dump(asdict(report), f, indent=4)
+
+    return asdict(report)
+
+def demo():
+    applications = [
+        {"member_id": "LUCR-001", "eligible": True, "county": "Vigo"},
+        {"member_id": "LUCR-002", "eligible": False, "county": "Clay"},
+        {"member_id": "LUCR-003", "eligible": True, "county": "Vigo"}
+    ]
+
+    escalations = [
+        {"member_id": "LUCR-002", "reason": "Eligible but not submitted"}
+    ]
+
+    print(generate_report(applications, escalations))
+
+if __name__ == "__main__":
+    demo()
