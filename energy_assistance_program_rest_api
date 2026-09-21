@@ -1,0 +1,43 @@
+from flask import Flask, request, jsonify
+from dao_rules import evaluate, Intake
+from intake_schema import validate
+
+app = Flask(__name__)
+
+@app.route("/intake/validate", methods=["POST"])
+def intake_validate():
+    payload = request.json
+    result = validate(payload)
+    return jsonify(result)
+
+@app.route("/eligibility/check", methods=["POST"])
+def eligibility_check():
+    data = request.json
+    intake = Intake(
+        income_monthly=data["income_monthly"],
+        household_size=data["household_size"],
+        disconnect_notice=data["disconnect_notice"]
+    )
+    result = evaluate(intake)
+    return jsonify(result)
+
+@app.route("/auto_apply/build", methods=["POST"])
+def auto_apply_build():
+    data = request.json
+    payload = {
+        "name": data["name"],
+        "county": data["county"],
+        "income": data["income_monthly"],
+        "household_size": data["household_size"],
+        "disconnect_notice": data["disconnect_notice"],
+        "agency": "Energy Assistance Program - WICAA",
+        "portal": "https://www.in.gov/ihcda/homeowners-and-renters/low-income-home-energy-assistance-program-liheap/"
+    }
+    return jsonify({"payload": payload})
+
+def demo():
+    print("REST API module ready for Beast System 3.0 orchestration.")
+
+if __name__ == "__main__":
+    demo()
+    app.run(port=8080)
