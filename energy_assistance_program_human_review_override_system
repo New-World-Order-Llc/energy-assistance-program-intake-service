@@ -1,0 +1,69 @@
+import time
+from dataclasses import dataclass, asdict
+
+AUTHORIZED_REVIEWERS = {
+    "CW-101": "Sarah M.",
+    "CW-102": "Marcus T.",
+    "CW-103": "Lena R.",
+    "CW-201": "Derek P.",
+    "CW-202": "Holly S.",
+    "CW-301": "Rita K."
+}
+
+@dataclass
+class OverrideRequest:
+    reviewer_id: str
+    member_id: str
+    field: str            # eligibility, routing, escalation, compliance
+    original_value: any
+    new_value: any
+    justification: str
+
+OVERRIDE_LOG = []
+
+def is_authorized(reviewer_id: str):
+    return reviewer_id in AUTHORIZED_REVIEWERS
+
+def apply_override(request: OverrideRequest):
+    if not is_authorized(request.reviewer_id):
+        return {
+            "error": "Reviewer not authorized for overrides.",
+            "reviewer_id": request.reviewer_id
+        }
+
+    entry = {
+        "reviewer_id": request.reviewer_id,
+        "reviewer_name": AUTHORIZED_REVIEWERS[request.reviewer_id],
+        "member_id": request.member_id,
+        "field": request.field,
+        "original_value": request.original_value,
+        "new_value": request.new_value,
+        "justification": request.justification,
+        "timestamp": int(time.time())
+    }
+
+    OVERRIDE_LOG.append(entry)
+
+    filename = f"override_{entry['timestamp']}.json"
+    with open(filename, "w") as f:
+        f.write(str(entry))
+
+    return entry
+
+def get_overrides(member_id: str):
+    return [o for o in OVERRIDE_LOG if o["member_id"] == member_id]
+
+def demo():
+    req = OverrideRequest(
+        reviewer_id="CW-101",
+        member_id="LUCR-001",
+        field="eligibility",
+        original_value=False,
+        new_value=True,
+        justification="Income verified manually; automated intake misread documentation."
+    )
+    print(apply_override(req))
+    print(get_overrides("LUCR-001"))
+
+if __name__ == "__main__":
+    demo()
