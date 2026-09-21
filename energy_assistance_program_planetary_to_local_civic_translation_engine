@@ -1,0 +1,84 @@
+from dataclasses import dataclass
+
+PLANETARY_FIELDS = {
+    "continent": {"weight": 1.0},
+    "adjusted_income_limit": {"weight": 1.2},
+    "sdg_compliance": {"weight": 1.5}
+}
+
+LOCAL_RULES = {
+    "IN-Vigo": {"income_limit": 900, "disconnect_required": True},
+    "IN-Clay": {"income_limit": 850, "disconnect_required": False},
+    "IL-Cook": {"income_limit": 1100, "disconnect_required": False},
+    "KY-Fayette": {"income_limit": 800, "disconnect_required": True}
+}
+
+@dataclass
+class TranslationRequest:
+    member_id: str
+    name: str
+    country: str
+    county: str
+    planetary_data: dict
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+
+def translate_planetary_to_local(req: TranslationRequest):
+    local = LOCAL_RULES.get(req.county)
+    if not local:
+        return {"error": f"County {req.county} not supported for translation."}
+
+    base_limit = local["income_limit"] * req.household_size
+
+    # Apply planetary modifiers deterministically
+    planetary_limit = req.planetary_data.get("adjusted_income_limit", base_limit)
+
+    combined_limit = (
+        base_limit * PLANETARY_FIELDS["adjusted_income_limit"]["weight"]
+        + planetary_limit * PLANETARY_FIELDS["continent"]["weight"]
+    ) / 2
+
+    # SDG compliance boosts local thresholds
+    sdg_data = req.planetary_data.get("sdg_compliance", {})
+    for sdg, result in sdg_data.items():
+        if result.get("compliant"):
+            combined_limit *= PLANETARY_FIELDS["sdg_compliance"]["weight"]
+
+    eligible = req.income_monthly <= combined_limit
+
+    if local["disconnect_required"] and not req.disconnect_notice:
+        eligible = False
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "country": req.country,
+        "county": req.county,
+        "combined_income_limit": round(combined_limit, 2),
+        "eligible": eligible,
+        "planetary_source": req.planetary_data
+    }
+
+def demo():
+    sample = TranslationRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        country="AUS",
+        county="IN-Vigo",
+        planetary_data={
+            "continent": "Oceania",
+            "adjusted_income_limit": 3500,
+            "sdg_compliance": {
+                "SDG1": {"goal": "No Poverty", "compliant": True},
+                "SDG7": {"goal": "Affordable Energy", "compliant": True}
+            }
+        },
+        income_monthly=1500,
+        household_size=2,
+        disconnect_notice=True
+    )
+    print(translate_planetary_to_local(sample))
+
+if __name__ == "__main__":
+    demo()
