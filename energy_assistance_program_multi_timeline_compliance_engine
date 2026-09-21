@@ -1,0 +1,95 @@
+from dataclasses import dataclass
+import time
+
+TIMELINE_RULES = {
+    "Present": {"income_factor": 1.0, "sdg_boost": 1.05, "strictness": 1.0},
+    "Past": {"income_factor": 0.85, "sdg_boost": 1.02, "strictness": 0.95},
+    "Future": {"income_factor": 1.25, "sdg_boost": 1.10, "strictness": 1.15},
+    "Parallel": {"income_factor": 1.15, "sdg_boost": 1.08, "strictness": 1.05}
+}
+
+PROGRAM_LIMITS = {
+    "LIHEAP": 1500,
+    "SNAP": 1300,
+    "Medicaid": 1600,
+    "Housing": 1400,
+    "TANF": 1200
+}
+
+@dataclass
+class MultiTimelineRequest:
+    member_id: str
+    name: str
+    program: str
+    income_monthly: float
+    household_size: int
+    sdg_vector: dict  # {"SDG1": True, "SDG7": False}
+
+def compute_timeline_limit(program: str, household_size: int, timeline: str, sdg_vector: dict):
+    if program not in PROGRAM_LIMITS:
+        return {"error": f"Program {program} not recognized."}
+
+    if timeline not in TIMELINE_RULES:
+        return {"error": f"Timeline {timeline} not recognized."}
+
+    base = PROGRAM_LIMITS[program] * household_size
+    rules = TIMELINE_RULES[timeline]
+
+    # Apply timeline income factor
+    adjusted = base * rules["income_factor"]
+
+    # Apply SDG boosts
+    for sdg, compliant in sdg_vector.items():
+        if compliant:
+            adjusted *= rules["sdg_boost"]
+
+    # Apply strictness dampening
+    adjusted /= rules["strictness"]
+
+    return round(adjusted, 2)
+
+def evaluate_all_timelines(req: MultiTimelineRequest):
+    results = {}
+    for timeline in TIMELINE_RULES.keys():
+        limit = compute_timeline_limit(
+            req.program,
+            req.household_size,
+            timeline,
+            req.sdg_vector
+        )
+        if isinstance(limit, dict) and "error" in limit:
+            return limit
+
+        eligible = req.income_monthly <= limit
+        results[timeline] = {
+            "timeline": timeline,
+            "income_limit": limit,
+            "eligible": eligible
+        }
+
+    # Deterministic cross‑timeline synthesis:
+    # Eligibility must be stable across at least 3 timelines.
+    stable = sum(1 for r in results.values() if r["eligible"]) >= 3
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "program": req.program,
+        "timeline_results": results,
+        "cross_timeline_stable": stable,
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = MultiTimelineRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        program="LIHEAP",
+        income_monthly=1500,
+        household_size=2,
+        sdg_vector={"SDG1": True, "SDG7": True}
+    )
+    print(evaluate_all_timelines(sample))
+
+if __name__ == "__main__":
+    demo()
