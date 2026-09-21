@@ -1,0 +1,79 @@
+import time
+from dataclasses import dataclass, asdict
+
+STATE_ESCALATION_ENDPOINT = (
+    "https://www.in.gov/ihcda/contact-us/"
+)
+
+@dataclass
+class EscalationPacket:
+    member_id: str
+    name: str
+    county: str
+    reason: str
+    timestamp: int
+    portal: str
+
+ESCALATION_LOG = []
+
+def should_escalate(status: dict):
+    """
+    Deterministic escalation rules:
+    - Application stuck > 72 hours
+    - Rejected but eligible
+    - Missing agency response
+    """
+    now = int(time.time())
+    last = status.get("last_update", now)
+
+    if now - last > 259200:
+        return "No agency response for 72 hours."
+
+    if status.get("eligibility") == "eligible" and status.get("submitted") is False:
+        return "Eligible but not submitted."
+
+    if status.get("error"):
+        return "Agency routing error."
+
+    return None
+
+def escalate(member_id: str, name: str, county: str, reason: str):
+    packet = EscalationPacket(
+        member_id=member_id,
+        name=name,
+        county=county,
+        reason=reason,
+        timestamp=int(time.time()),
+        portal=STATE_ESCALATION_ENDPOINT
+    )
+
+    entry = asdict(packet)
+    ESCALATION_LOG.append(entry)
+
+    filename = f"escalation_{packet.timestamp}.json"
+    with open(filename, "w") as f:
+        f.write(str(entry))
+
+    return entry
+
+def demo():
+    status = {
+        "member_id": "LUCR-001",
+        "name": "John Doe",
+        "county": "Vigo",
+        "eligibility": "eligible",
+        "submitted": False,
+        "last_update": int(time.time()) - 300000
+    }
+
+    reason = should_escalate(status)
+    if reason:
+        print(escalate(
+            member_id=status["member_id"],
+            name=status["name"],
+            county=status["county"],
+            reason=reason
+        ))
+
+if __name__ == "__main__":
+    demo()
