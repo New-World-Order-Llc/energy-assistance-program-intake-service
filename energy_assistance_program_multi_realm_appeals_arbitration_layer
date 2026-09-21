@@ -1,0 +1,91 @@
+from dataclasses import dataclass
+import time
+import math
+
+REALM_ARBITRATION = {
+    "Physical": {"fairness": 0.98, "authority": 1.0},
+    "Quantum": {"fairness": 0.85, "authority": 1.3},
+    "Temporal": {"fairness": 0.90, "authority": 1.5},
+    "Simulated": {"fairness": 0.99, "authority": 0.9},
+    "Parallel": {"fairness": 0.88, "authority": 1.2},
+    "Cosmic": {"fairness": 0.75, "authority": 1.8},
+    "TransCosmic": {"fairness": 0.70, "authority": 2.2}
+}
+
+APPEAL_TYPES = {
+    "Eligibility": 1.0,
+    "BenefitAmount": 1.2,
+    "RoutingDecision": 1.1,
+    "ComplianceFlag": 1.3
+}
+
+@dataclass
+class AppealSignal:
+    realm: str
+    confidence: float  # 0.0–1.0
+    supports_appeal: bool
+
+@dataclass
+class ArbitrationRequest:
+    member_id: str
+    name: str
+    appeal_type: str
+    signals: list  # list[AppealSignal]
+
+def compute_realm_influence(signal: AppealSignal, appeal_type: str):
+    if signal.realm not in REALM_ARBITRATION:
+        return 0
+
+    realm = REALM_ARBITRATION[signal.realm]
+    base = APPEAL_TYPES.get(appeal_type, 1.0)
+
+    influence = base * realm["authority"] * realm["fairness"] * signal.confidence
+
+    if signal.supports_appeal:
+        influence *= 1.1  # support boost
+
+    return round(influence, 4)
+
+def arbitrate(req: ArbitrationRequest):
+    influences = {}
+
+    for sig in req.signals:
+        score = compute_realm_influence(sig, req.appeal_type)
+        influences[sig.realm] = score
+
+    if not influences:
+        return {"error": "No arbitration signals provided."}
+
+    # Deterministic arbitration: sum of all realm influences
+    total_influence = round(sum(influences.values()), 4)
+
+    # Decision threshold: > 1.0 means appeal granted
+    granted = total_influence > 1.0
+
+    return {
+        "member_id": req.member_id,
+        "name": req.name,
+        "appeal_type": req.appeal_type,
+        "realm_influences": influences,
+        "total_influence": total_influence,
+        "appeal_granted": granted,
+        "timestamp": int(time.time())
+    }
+
+def demo():
+    sample = ArbitrationRequest(
+        member_id="LUCR-001",
+        name="John Doe",
+        appeal_type="Eligibility",
+        signals=[
+            AppealSignal("Physical", 0.9, True),
+            AppealSignal("Quantum", 0.7, True),
+            AppealSignal("Temporal", 0.6, False),
+            AppealSignal("Simulated", 0.95, True),
+            AppealSignal("TransCosmic", 0.4, True)
+        ]
+    )
+    print(arbitrate(sample))
+
+if __name__ == "__main__":
+    demo()
