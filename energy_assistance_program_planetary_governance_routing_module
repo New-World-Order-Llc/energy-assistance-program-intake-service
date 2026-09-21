@@ -1,0 +1,99 @@
+from dataclasses import dataclass
+
+CONTINENT_RULES = {
+    "NorthAmerica": {"base_limit": 1500, "sdg": ["SDG1", "SDG7"]},
+    "Europe": {"base_limit": 1300, "sdg": ["SDG1", "SDG10"]},
+    "Asia": {"base_limit": 1000, "sdg": ["SDG1"]},
+    "Africa": {"base_limit": 700, "sdg": ["SDG1", "SDG7"]},
+    "SouthAmerica": {"base_limit": 900, "sdg": ["SDG1", "SDG10"]},
+    "Oceania": {"base_limit": 1600, "sdg": ["SDG7"]},
+}
+
+COUNTRY_TO_CONTINENT = {
+    "USA": "NorthAmerica",
+    "CAN": "NorthAmerica",
+    "MEX": "NorthAmerica",
+    "UK": "Europe",
+    "FRA": "Europe",
+    "GER": "Europe",
+    "JPN": "Asia",
+    "CHN": "Asia",
+    "IND": "Asia",
+    "BRA": "SouthAmerica",
+    "ARG": "SouthAmerica",
+    "AUS": "Oceania",
+    "NZL": "Oceania",
+    "KEN": "Africa",
+    "NGA": "Africa",
+}
+
+@dataclass
+class PlanetaryIntake:
+    member_id: str
+    name: str
+    country: str
+    income_monthly: float
+    household_size: int
+    sdg_compliance: dict
+
+def compute_planetary_limit(country: str, household_size: int, sdg_compliance: dict):
+    continent = COUNTRY_TO_CONTINENT.get(country)
+    if not continent:
+        return {"error": f"Country {country} not mapped to any continent."}
+
+    rules = CONTINENT_RULES[continent]
+    base = rules["base_limit"] * household_size
+
+    # Apply SDG modifiers
+    for sdg in rules["sdg"]:
+        if sdg in sdg_compliance and sdg_compliance[sdg]["compliant"]:
+            if sdg == "SDG1":
+                base *= 1.1
+            if sdg == "SDG7":
+                base *= 1.05
+            if sdg == "SDG10":
+                base *= 1.2
+
+    return {
+        "continent": continent,
+        "adjusted_limit": base
+    }
+
+def route_planetary(intake: PlanetaryIntake):
+    limit_info = compute_planetary_limit(
+        intake.country,
+        intake.household_size,
+        intake.sdg_compliance
+    )
+
+    if "error" in limit_info:
+        return limit_info
+
+    eligible = intake.income_monthly <= limit_info["adjusted_limit"]
+
+    return {
+        "member_id": intake.member_id,
+        "name": intake.name,
+        "country": intake.country,
+        "continent": limit_info["continent"],
+        "adjusted_income_limit": limit_info["adjusted_limit"],
+        "eligible": eligible,
+        "routed_to": f"{limit_info['continent']} Planetary Governance Node"
+    }
+
+def demo():
+    sample = PlanetaryIntake(
+        member_id="LUCR-001",
+        name="John Doe",
+        country="AUS",
+        income_monthly=2500,
+        household_size=2,
+        sdg_compliance={
+            "SDG1": {"goal": "No Poverty", "compliant": True},
+            "SDG7": {"goal": "Affordable Energy", "compliant": True}
+        }
+    )
+    print(route_planetary(sample))
+
+if __name__ == "__main__":
+    demo()
