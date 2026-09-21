@@ -1,0 +1,76 @@
+from dataclasses import dataclass
+
+FEDERAL_RULES = {
+    "LIHEAP": {"income_limit": 1500, "requires_disconnect": True},
+    "SNAP": {"income_limit": 1300, "requires_children": False},
+    "Medicaid": {"income_limit": 1600, "requires_disability": False}
+}
+
+STATE_RULES = {
+    "IN": {"income_multiplier": 0.9, "disconnect_override": False},
+    "IL": {"income_multiplier": 1.0, "disconnect_override": True},
+    "KY": {"income_multiplier": 0.85, "disconnect_override": False}
+}
+
+COUNTY_RULES = {
+    "IN-Vigo": {"local_adjustment": 1.1},
+    "IN-Clay": {"local_adjustment": 1.0},
+    "IL-Cook": {"local_adjustment": 1.2}
+}
+
+TRIBAL_RULES = {
+    "NavajoNation": {"income_bonus": 1.25, "energy_priority": True},
+    "CherokeeNation": {"income_bonus": 1.15, "energy_priority": False}
+}
+
+INTERNATIONAL_RULES = {
+    "CAN": {"global_factor": 1.3},
+    "UK": {"global_factor": 1.1},
+    "AUS": {"global_factor": 1.4}
+}
+
+@dataclass
+class OmniComplianceRequest:
+    member_id: str
+    name: str
+    program: str
+    country: str
+    state: str
+    county: str
+    tribal_affiliation: str | None
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+    disability_status: bool
+    children: int
+
+def compute_compliance(req: OmniComplianceRequest):
+    # Federal baseline
+    fed = FEDERAL_RULES.get(req.program)
+    if not fed:
+        return {"error": f"Program {req.program} not recognized federally."}
+
+    base_limit = fed["income_limit"] * req.household_size
+
+    # State adjustment
+    state = STATE_RULES.get(req.state, {"income_multiplier": 1.0})
+    base_limit *= state["income_multiplier"]
+
+    # County adjustment
+    county = COUNTY_RULES.get(req.county, {"local_adjustment": 1.0})
+    base_limit *= county["local_adjustment"]
+
+    # Tribal adjustment
+    if req.tribal_affiliation and req.tribal_affiliation in TRIBAL_RULES:
+        tribal = TRIBAL_RULES[req.tribal_affiliation]
+        base_limit *= tribal["income_bonus"]
+
+    # International adjustment
+    if req.country in INTERNATIONAL_RULES:
+        intl = INTERNATIONAL_RULES[req.country]
+        base_limit *= intl["global_factor"]
+
+    # Eligibility checks
+    eligible = req.income_monthly <= base_limit
+
+    # Federal disconnect requirement
