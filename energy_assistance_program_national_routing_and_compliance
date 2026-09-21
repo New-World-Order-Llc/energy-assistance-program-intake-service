@@ -1,0 +1,64 @@
+from dataclasses import dataclass
+
+NATIONAL_STATES = {
+    "IN": {"region": "Midwest", "federal_program": "LIHEAP", "income_limit": 900},
+    "IL": {"region": "Midwest", "federal_program": "LIHEAP", "income_limit": 950},
+    "KY": {"region": "South", "federal_program": "LIHEAP", "income_limit": 875},
+    "CA": {"region": "West", "federal_program": "LIHEAP", "income_limit": 1200},
+    "TX": {"region": "South", "federal_program": "LIHEAP", "income_limit": 1100},
+    "NY": {"region": "Northeast", "federal_program": "LIHEAP", "income_limit": 1300}
+}
+
+@dataclass
+class NationalIntake:
+    member_id: str
+    name: str
+    state: str
+    income_monthly: float
+    household_size: int
+
+def check_compliance(intake: NationalIntake):
+    config = NATIONAL_STATES.get(intake.state)
+    if not config:
+        return {"error": f"State {intake.state} not recognized nationally."}
+
+    max_income = config["income_limit"] * intake.household_size
+    eligible = intake.income_monthly <= max_income
+
+    return {
+        "member_id": intake.member_id,
+        "state": intake.state,
+        "region": config["region"],
+        "federal_program": config["federal_program"],
+        "eligible": eligible,
+        "income_limit": max_income,
+        "compliance_pass": eligible
+    }
+
+def route_national(intake: NationalIntake):
+    compliance = check_compliance(intake)
+    if "error" in compliance:
+        return compliance
+
+    return {
+        "member_id": intake.member_id,
+        "name": intake.name,
+        "state": intake.state,
+        "region": compliance["region"],
+        "federal_program": compliance["federal_program"],
+        "eligible": compliance["eligible"],
+        "routed_to": f"{compliance['federal_program']} National Processing Center"
+    }
+
+def demo():
+    sample = NationalIntake(
+        member_id="LUCR-001",
+        name="John Doe",
+        state="NY",
+        income_monthly=1800,
+        household_size=2
+    )
+    print(route_national(sample))
+
+if __name__ == "__main__":
+    demo()
