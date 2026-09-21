@@ -1,0 +1,48 @@
+import json
+import time
+from dataclasses import dataclass, asdict
+
+@dataclass
+class AuditEntry:
+    event: str
+    member_id: str
+    details: dict
+    timestamp: int
+
+AUDIT_LOG = []
+
+def log_event(event: str, member_id: str, details: dict):
+    entry = AuditEntry(
+        event=event,
+        member_id=member_id,
+        details=details,
+        timestamp=int(time.time())
+    )
+    AUDIT_LOG.append(asdict(entry))
+
+    filename = f"audit_{entry.timestamp}.json"
+    with open(filename, "w") as f:
+        json.dump(asdict(entry), f, indent=4)
+
+    return asdict(entry)
+
+def get_audit_history(member_id: str):
+    return [e for e in AUDIT_LOG if e["member_id"] == member_id]
+
+def demo():
+    log_event(
+        event="eligibility_check",
+        member_id="LUCR-001",
+        details={"eligible": True, "income": 1500, "household_size": 2}
+    )
+
+    log_event(
+        event="routing",
+        member_id="LUCR-001",
+        details={"agency": "WICAA", "county": "Vigo"}
+    )
+
+    print("Audit History:", get_audit_history("LUCR-001"))
+
+if __name__ == "__main__":
+    demo()
