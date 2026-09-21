@@ -1,0 +1,44 @@
+import time
+from dataclasses import dataclass, asdict
+
+@dataclass
+class MemberStatus:
+    member_id: str
+    name: str
+    eligibility: str
+    submitted: bool
+    last_update: int
+    agency: str
+    portal: str
+
+STATUS_STORE = {}
+
+def update_status(member_id: str, eligibility: str, submitted: bool, agency: str, portal: str):
+    status = MemberStatus(
+        member_id=member_id,
+        name="Unknown",  # Beast System 3.0 fills this upstream
+        eligibility=eligibility,
+        submitted=submitted,
+        last_update=int(time.time()),
+        agency=agency,
+        portal=portal
+    )
+    STATUS_STORE[member_id] = asdict(status)
+    return STATUS_STORE[member_id]
+
+def get_status(member_id: str):
+    return STATUS_STORE.get(member_id, {"error": "No status found."})
+
+def demo():
+    s = update_status(
+        member_id="LUCR-001",
+        eligibility="eligible",
+        submitted=True,
+        agency="Energy Assistance Program - WICAA",
+        portal="https://www.in.gov/ihcda/homeowners-and-renters/low-income-home-energy-assistance-program-liheap/"
+    )
+    print("Updated Status:", s)
+    print("Fetch Status:", get_status("LUCR-001"))
+
+if __name__ == "__main__":
+    demo()
