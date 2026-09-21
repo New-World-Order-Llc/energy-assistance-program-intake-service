@@ -1,0 +1,57 @@
+from dataclasses import dataclass
+
+CIVIC_SYSTEMS = {
+    "SNAP": {"endpoint": "https://state.gov/snap/api", "fields": ["income", "household_size"]},
+    "Medicaid": {"endpoint": "https://state.gov/medicaid/api", "fields": ["income", "disability_status"]},
+    "Housing": {"endpoint": "https://state.gov/housing/api", "fields": ["income", "rent_burden"]},
+    "TANF": {"endpoint": "https://state.gov/tanf/api", "fields": ["income", "children"]},
+}
+
+@dataclass
+class CivicIntake:
+    member_id: str
+    name: str
+    income_monthly: float
+    household_size: int
+    disconnect_notice: bool
+    rent_burden: float
+    disability_status: bool
+    children: int
+
+def map_fields(system: str, intake: CivicIntake):
+    config = CIVIC_SYSTEMS[system]
+    mapped = {}
+
+    for field in config["fields"]:
+        if hasattr(intake, field):
+            mapped[field] = getattr(intake, field)
+        else:
+            mapped[field] = None
+
+    return {
+        "system": system,
+        "endpoint": config["endpoint"],
+        "payload": mapped
+    }
+
+def integrate(intake: CivicIntake):
+    results = {}
+    for system in CIVIC_SYSTEMS:
+        results[system] = map_fields(system, intake)
+    return results
+
+def demo():
+    sample = CivicIntake(
+        member_id="LUCR-001",
+        name="John Doe",
+        income_monthly=1500,
+        household_size=2,
+        disconnect_notice=True,
+        rent_burden=0.45,
+        disability_status=False,
+        children=1
+    )
+    print(integrate(sample))
+
+if __name__ == "__main__":
+    demo()
